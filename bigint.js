@@ -172,15 +172,49 @@ var BigInt = function() {
 	// ADDITION AND SUBTRACTION
 	
 	function _add(m,n) {
-		var sum = new BigInt(), sd = [], md = m.digits, nd = n.digits;
+		var sum = new BigInt(), sd = [], md = m.digits, nd = n.digits, carry = 0, tmp;
 		
+		for (var i=0,l=md.length;i<l;i++) {
+			tmp = md[i] + nd[i] + carry;
+			sd.push(tmp % 10);
+			carry = (tmp > 9)?1:0;
+		}
 		
+		if (carry == 1) {
+			sd.push(1);
+		}
+		
+		sum.digits = sd;
 		
 		return sum;
+	}
+	
+	function _sub(m,n) {
+		var diff = new BigInt(), dd = [], md = m.digits, nd = n.digits, borrow = 0;
+		
+		for (var i=0,l=md.length;i<l;i++) {
+			if (md[i] < nd[i]) {
+				dd.push(10 + md[i] - nd[i] - borrow);
+				borrow = 1;
+			}
+			else {
+				dd.push(md[i] - nd[i] - borrow);
+				borrow = 0;
+			}
+		}
+		
+		diff.digits = dd;
+		
+		return diff;
 	}
 	
 	// Addition
 	this.add = function(n) {
 		return _add(this,n);
+	};
+	
+	// Subtraction
+	this.sub = function(n) {
+		return _sub(this,n);
 	};
 };
