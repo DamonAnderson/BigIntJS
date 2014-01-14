@@ -174,14 +174,21 @@ var BigInt = function() {
 	function _add(m,n) {
 		var sum = new BigInt(), sd = [], md = m.digits, nd = n.digits, carry = 0, tmp;
 		
-		for (var i=0,l=md.length;i<l;i++) {
+		for (var i=0,l=nd.length;i<l;i++) {
 			tmp = md[i] + nd[i] + carry;
 			sd.push(tmp % 10);
 			carry = (tmp > 9)?1:0;
 		}
 		
+		k = nd.length;
 		if (carry == 1) {
 			sd.push(1);
+			k++;
+		}
+		
+		while (k < md.length) {
+			sd.push(md[k]);
+			k++;
 		}
 		
 		sum.digits = sd;
@@ -190,9 +197,9 @@ var BigInt = function() {
 	}
 	
 	function _sub(m,n) {
-		var diff = new BigInt(), dd = [], md = m.digits, nd = n.digits, borrow = 0;
+		var diff = new BigInt(), dd = [], md = m.digits, nd = n.digits, borrow = 0, k;
 		
-		for (var i=0,l=md.length;i<l;i++) {
+		for (var i=0,l=nd.length;i<l;i++) {
 			if (md[i] < nd[i]) {
 				dd.push(10 + md[i] - nd[i] - borrow);
 				borrow = 1;
@@ -203,6 +210,23 @@ var BigInt = function() {
 			}
 		}
 		
+		k = nd.length;
+		if (borrow == 1) {
+			dd.push(md[k] - borrow);
+			k++;
+		}
+		
+		while (k < md.length) {
+			dd.push(md[k]);
+			k++;
+		}
+		
+		k = dd.length - 1;
+		while (dd[k] == 0 && dd.length > 1) {
+			dd.pop();
+			k--;
+		}
+		
 		diff.digits = dd;
 		
 		return diff;
@@ -210,11 +234,157 @@ var BigInt = function() {
 	
 	// Addition
 	this.add = function(n) {
-		return _add(this,n);
+		var sum;
+		if (!this.negative && !n.negative) {
+			console.log('Two positive');
+			if (gmag(this,n)) {
+				console.log('m > n');
+				sum = _add(this,n);
+			}
+			else {
+				console.log('m < n');
+				sum = _add(n,this);
+			}
+			sum.negative = false;
+		}
+		else if (this.negative && n.negative) {
+			if (gmag(this,n)) {
+				sum = _add(this,n);
+			}
+			else {
+				sum = _add(n,this);
+			}
+			sum.negative = true;
+		}
+		else if (!this.negative && n.negative) {
+			if (gmag(this,n)) {
+				sum = _sub(this,n);
+				sum.negative = false;
+			}
+			else {
+				sum = _sub(n,this);
+				sum.negative = true;
+			}
+		}
+		else if (this.negative && !n.negative) {
+			if (gmag(this,n)) {
+				sum = _sub(this,n);
+				sum.negative = true;
+			}
+			else {
+				sum = _sub(n,this);
+				sum.negative = false;
+			}
+		}
+		
+		// There is no such thing as "negative zero".
+		if (sum.digits.length == 1 && sum.digits[0] == 0) {
+			sum.negative = false;
+		}
+		
+		return sum;
 	};
 	
 	// Subtraction
 	this.sub = function(n) {
-		return _sub(this,n);
+		var diff;
+		if (!this.negative && !n.negative) {	// m - n
+			if (gmag(this,n)) {
+				diff = _sub(this,n);
+				diff.negative = false;
+			}
+			else {
+				diff = _sub(n,this);
+				diff.negative = true;
+			}
+		}
+		else if (this.negative && n.negative) {	// -m - -n = -m + n = n - m
+			if (gmag(this,n)) {
+				diff = _sub(this,n);
+				diff.negative = true;
+			}
+			else {
+				diff = _sub(n,this);
+				diff.negative = false;
+			}
+		}
+		else if (!this.negative && n.negative) {	// m - -n = m + n
+			if (gmag(this,n)) {
+				diff = _add(this,n);
+			}
+			else {
+				diff = _add(n,this);
+			}
+			diff.negative = false;
+		}
+		else if (this.negative && !n.negative) {	// -m - n = -(m + n)
+			if (gmag(this,n)) {
+				diff = _add(this,n);
+			}
+			else {
+				diff = _add(n,this);
+			}
+			diff.negative = true;
+		}
+		
+		// There is no such thing as "negative zero".
+		if (diff.digits.length == 1 && diff.digits[0] == 0) {
+			diff.negative = false;
+		}
+		
+		return diff;
+	};
+	
+	// MULTIPLICATION
+	
+	this.mul = function(n) {
+		
+		var product = new BigInt(), pd = [], mm = [], ad, bd, tmp, carry = 0;
+		
+		if (gmag(this,n)) {
+			ad = this.digits;
+			bd = n.digits;
+		}
+		else {
+			ad = n.digits;
+			bd = this.digits;
+		}
+		
+		for (var i=0,lb=bd.length;i<lb;i++) {
+			for (var j=0,la=ad.length;j<la;j++) {
+				tmp = ad[j]*bd[i] + carry;
+				if (mm[i+j]==null) {
+					mm[i+j] = (tmp % 10);
+				}
+				else {
+					mm[i+j] += (tmp % 10);
+				}
+				carry = Math.floor(tmp/10);
+			}
+		}
+		
+		mm.push(carry);
+		
+		var k = mm.length - 1;
+		while (mm[k] == 0 && mm.length > 1) {
+			mm.pop();
+			k--;
+		}
+		
+		product.digits = mm;
+		
+		if (this.negative == n.negative) {
+			product.negative = false;
+		}
+		else {
+			product.negative = true;
+		}
+		
+		// There is no such thing as "negative zero".
+		if (mm.length == 1 && mm[0] == 0) {
+			product.negative = false;
+		}
+		
+		return product;
 	};
 };
